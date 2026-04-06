@@ -1,73 +1,39 @@
-export async function onRequestPost(context) {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
+export async function onRequestPost({ request, env }) {
   try {
-    const body = await context.request.json();
-    const { name, email, message } = body;
+    const { name, email, message } = await request.json();
 
     if (!name || !email || !message) {
-      return new Response(JSON.stringify({ error: 'All fields are required.' }), {
+      return new Response(JSON.stringify({ error: "Missing fields" }), {
         status: 400,
-        headers,
+        headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Send via MailChannels (free for Cloudflare Workers/Pages)
-    const mailRes = await fetch('https://api.mailchannels.net/tx/v1/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        personalizations: [
-          {
-            to: [{ email: 'shivamagra75@gmail.com', name: 'Evid' }],
-          },
-        ],
-        from: {
-          email: 'noreply@evid.software',
-          name: 'Evid Contact Form',
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/email/routing/rules`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.CF_API_TOKEN}`,
+          "Content-Type": "application/json",
         },
-        reply_to: {
-          email,
-          name,
-        },
-        subject: `[Evid] Message from ${name}`,
-        content: [
-          {
-            type: 'text/plain',
-            value: `Name: ${name}\nEmail: ${email}\n\n${message}`,
-          },
-        ],
-      }),
+        body: JSON.stringify({
+          from: "contact@evid.software",
+          to: env.CONTACT_EMAIL,
+          subject: `Message from ${name}`,
+          text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
+        }),
+      }
+    );
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
     });
-
-    if (!mailRes.ok) {
-      const errText = await mailRes.text();
-      console.error('MailChannels error:', errText);
-      return new Response(JSON.stringify({ error: 'Failed to send email.' }), {
-        status: 502,
-        headers,
-      });
-    }
-
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
-  } catch (err) {
-    console.error('Contact form error:', err);
-    return new Response(JSON.stringify({ error: 'Server error.' }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "Server error" }), {
       status: 500,
-      headers,
+      headers: { "Content-Type": "application/json" },
     });
   }
-}
-
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
 }
