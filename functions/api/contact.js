@@ -9,22 +9,27 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/email/routing/rules`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.CF_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: "contact@evid.software",
-          to: env.CONTACT_EMAIL,
-          subject: `Message from ${name}`,
-          text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
-        }),
-      }
-    );
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "Evid Contact <contact@evid.software>",
+        to: "shivamagra75@gmail.com",
+        reply_to: email,
+        subject: `[Evid] Message from ${name}`,
+        text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
+      }),
+    });
+
+    if (!res.ok) {
+      return new Response(JSON.stringify({ error: "Failed to send" }), {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
